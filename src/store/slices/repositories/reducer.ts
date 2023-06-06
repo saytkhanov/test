@@ -6,6 +6,7 @@ import {RootState} from "../../index";
 interface Repository {
     id: number;
     name: string;
+    stars: number;
     // add more repository properties as needed
 }
 
@@ -28,6 +29,9 @@ export const fetchRepositories = createAsyncThunk<{ repositories: Repository[] }
     try {
         const state: RootState = getState();
 
+        if (!state.user.username)
+            return rejectWithValue({ error: "User not authenticated" });
+
         const response = await axios.get(PROXY_API.REPOS + "?login=" + state.user.username, {
             headers: {
                 Authorization: state.user.token
@@ -35,13 +39,16 @@ export const fetchRepositories = createAsyncThunk<{ repositories: Repository[] }
         });
 
         if (response.status !== 200)
-            rejectWithValue(response.statusText);
+            return rejectWithValue({ error: response.statusText });
 
         const repositories = response.data;
 
-        return ({ repositories: repositories.map(rawRepo => ({id: rawRepo.id, name: rawRepo.name}))});
+        const mapToRepo = (rawRepo) => ({id: rawRepo.id, name: rawRepo.name, stars: rawRepo.stargazers_count});
+
+        return ({ repositories: repositories.map(mapToRepo)});
+
     } catch (e) {
-        rejectWithValue({ error:  e.toString()});
+        return rejectWithValue({ error: e.toString()});
     }
 });
 
@@ -62,5 +69,9 @@ const repositoriesReducer = createReducer(initialState, (builder) => {
 });
 
 export const selectRepositories = (state: RootState) => state.repositories.repositories;
+
+export const selectRepositoriesLoader = (state: RootState) => state.repositories.status;
+
+export const selectRepositoriesError = (state: RootState) => state.repositories.error;
 
 export default repositoriesReducer;

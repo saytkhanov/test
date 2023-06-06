@@ -17,43 +17,45 @@ const initialState: UserState = {
     error: null
 };
 
-export const fetchToken = createAsyncThunk<{ token: string }, { code: string }>("user/fetchToken", async (data, {rejectWithValue}) => {
+export const fetchToken = createAsyncThunk<{ token: string }, { code: string }>("user/fetchToken", async (data, {rejectWithValue, dispatch}) => {
     try {
         const codeQuery = "?code=" + data.code;
         const response = await axios.get(PROXY_API.TOKEN + codeQuery);
 
-        if (response.status != 200)
-            rejectWithValue(response.statusText);
+        if (response.status !== 200)
+            return rejectWithValue({ error: response.statusText });
 
         const {tokenType, token: rawToken} = response.data;
 
         const token = [tokenType, rawToken].join(" ");
 
-        return {token};
+        await dispatch(fetchUserData({ token }));
+
+        return { token };
     } catch (e) {
-        rejectWithValue(e.toString());
+        return rejectWithValue({error: e.toString() });
     }
 });
 
-export const fetchUserData = createAsyncThunk<{ login: string }>("user/fetchUserData", async (data, {
+export const fetchUserData = createAsyncThunk<{ login: string }, { token: string }>("user/fetchUserData", async (data, {
     getState,
     rejectWithValue
 }) => {
     try {
-        const state: RootState = getState();
+        // const state: RootState = getState();
 
         const response = await axios.get(PROXY_API.USER, {
             headers: {
-                Authorization: state.user.token
+                Authorization: data.token,
             }
         });
 
         if (response.status !== 200)
-            rejectWithValue(response.statusText);
+            rejectWithValue({ error: response.statusText });
 
         return {login: response.data.login}
     } catch (e) {
-        rejectWithValue(e.toString());
+        rejectWithValue({error: e.toString() });
     }
 });
 
